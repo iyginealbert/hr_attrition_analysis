@@ -1,0 +1,200 @@
+CREATE TABLE hr_attrition (
+    EmployeeNumber           INT PRIMARY KEY,
+    Age                      INT,
+    Attrition                VARCHAR(5),
+    BusinessTravel           VARCHAR(30),
+    DailyRate                INT,
+    Department               VARCHAR(50),
+    DistanceFromHome         INT,
+    Education                INT,
+    EducationField            VARCHAR(50),
+    EmployeeCount             INT,
+    EnvironmentSatisfaction   INT,
+    Gender                    VARCHAR(10),
+    HourlyRate                INT,
+    JobInvolvement             INT,
+    JobLevel                   INT,
+    JobRole                    VARCHAR(50),
+    JobSatisfaction            INT,
+    MaritalStatus               VARCHAR(20),
+    MonthlyIncome                INT,
+    MonthlyRate                  INT,
+    NumCompaniesWorked           INT,
+    Over18                       VARCHAR(1),
+    OverTime                     VARCHAR(5),
+    PercentSalaryHike            INT,
+    PerformanceRating             INT,
+    RelationshipSatisfaction      INT,
+    StandardHours                 INT,
+    StockOptionLevel               INT,
+    TotalWorkingYears               INT,
+    TrainingTimesLastYear           INT,
+    WorkLifeBalance                  INT,
+    YearsAtCompany                   INT,
+    YearsInCurrentRole                INT,
+    YearsSinceLastPromotion            INT,
+    YearsWithCurrManager                INT
+);
+
+
+-- QUERY 1: Overall Attrition Rate
+-- Concept: COUNT, WHERE, subquery
+-- Business Question: What percentage of employees have left?
+
+SELECT 
+    (SELECT COUNT(*) FROM hr_attrition) AS total_employees,
+    COUNT(*) AS total_attrition,
+    ROUND(
+        COUNT(*) * 100.0 / (SELECT COUNT(*) FROM hr_attrition), 2
+    ) AS attrition_rate_percent
+FROM hr_attrition
+WHERE Attrition = 'Yes';
+ 
+-- Expected Insight: ~16% of employees have left the company
+ 
+ 
+
+-- QUERY 2: Attrition by Department
+-- Concept: GROUP BY, ORDER BY
+-- Business Question: Which department loses the most employees?
+
+SELECT 
+    Department,
+    COUNT(*) AS total_employees,
+    SUM(CASE WHEN Attrition = 'Yes' THEN 1 ELSE 0 END) AS attrition_count,
+    ROUND(
+        SUM(CASE WHEN Attrition = 'Yes' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2
+    ) AS attrition_rate_percent
+FROM hr_attrition
+GROUP BY Department
+ORDER BY attrition_rate_percent DESC;
+ 
+-- QUERY 3: Attrition by Job Role (only roles with high attrition)
+-- Concept: GROUP BY, HAVING
+-- Business Question: Which job roles are most at risk?
+
+SELECT 
+    JobRole,
+    COUNT(*) AS total_employees,
+    SUM(CASE WHEN Attrition = 'Yes' THEN 1 ELSE 0 END) AS attrition_count,
+    ROUND(
+        SUM(CASE WHEN Attrition = 'Yes' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2
+    ) AS attrition_rate_percent
+FROM hr_attrition
+GROUP BY JobRole
+HAVING attrition_count > 20
+ORDER BY attrition_rate_percent DESC;
+ 
+
+-- QUERY 4: Average Salary - Employees Who Left vs Stayed
+-- Concept: GROUP BY, AVG, ROUND
+-- Business Question: Are lower-paid employees leaving more?
+
+SELECT 
+    Attrition,
+    ROUND(AVG(MonthlyIncome), 2) AS avg_monthly_income,
+    ROUND(AVG(MonthlyRate), 2) AS avg_monthly_rate,
+    COUNT(*) AS employee_count
+FROM hr_attrition
+GROUP BY Attrition;
+ 
+-- QUERY 5: Attrition by Overtime
+-- Concept: CASE statement, GROUP BY
+-- Business Question: Does working overtime cause more attrition?
+
+SELECT 
+    OverTime,
+    COUNT(*) AS total_employees,
+    SUM(CASE WHEN Attrition = 'Yes' THEN 1 ELSE 0 END) AS attrition_count,
+    ROUND(
+        SUM(CASE WHEN Attrition = 'Yes' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2
+    ) AS attrition_rate_percent
+FROM hr_attrition
+GROUP BY OverTime;
+ 
+ 
+
+-- QUERY 6: Top 5 Job Roles with Highest Attrition Count
+-- Concept: ORDER BY, LIMIT
+-- Business Question: Where to focus HR retention efforts?
+
+SELECT 
+    JobRole,
+    SUM(CASE WHEN Attrition = 'Yes' THEN 1 ELSE 0 END) AS attrition_count
+FROM hr_attrition
+GROUP BY JobRole
+ORDER BY attrition_count DESC
+LIMIT 5;
+ 
+ 
+
+-- QUERY 7: Attrition by Age Group
+-- Concept: CASE for binning/bucketing ages into groups
+-- Business Question: Which age group leaves the most?
+
+SELECT 
+    CASE 
+        WHEN Age BETWEEN 18 AND 30 THEN '18-30 (Early Career)'
+        WHEN Age BETWEEN 31 AND 40 THEN '31-40 (Mid Career)'
+        WHEN Age BETWEEN 41 AND 50 THEN '41-50 (Senior)'
+        ELSE '50+ (Experienced)'
+    END AS age_group,
+    COUNT(*) AS total_employees,
+    SUM(CASE WHEN Attrition = 'Yes' THEN 1 ELSE 0 END) AS attrition_count,
+    ROUND(
+        SUM(CASE WHEN Attrition = 'Yes' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2
+    ) AS attrition_rate_percent
+FROM hr_attrition
+GROUP BY age_group
+ORDER BY attrition_rate_percent DESC;
+ 
+
+-- QUERY 8: Department-wise Average Job Satisfaction
+-- Concept: AVG, GROUP BY, ORDER BY
+-- Business Question: Are dissatisfied employees leaving?
+
+SELECT 
+    Department,
+    ROUND(AVG(JobSatisfaction), 2) AS avg_job_satisfaction,
+    ROUND(AVG(EnvironmentSatisfaction), 2) AS avg_env_satisfaction,
+    ROUND(AVG(WorkLifeBalance), 2) AS avg_work_life_balance
+FROM hr_attrition
+GROUP BY Department
+ORDER BY avg_job_satisfaction ASC;
+ 
+ 
+-- QUERY 9: Running Total of Attrition by Years at Company
+-- Concept: *** WINDOW FUNCTION *** - SUM() OVER()
+-- Business Question: At what tenure point do most employees leave?
+
+SELECT 
+    YearsAtCompany,
+    COUNT(*) AS total_employees,
+    SUM(CASE WHEN Attrition = 'Yes' THEN 1 ELSE 0 END) AS attrition_count,
+    SUM(
+        SUM(CASE WHEN Attrition = 'Yes' THEN 1 ELSE 0 END)
+    ) OVER (ORDER BY YearsAtCompany) AS running_total_attrition
+FROM hr_attrition
+GROUP BY YearsAtCompany
+ORDER BY YearsAtCompany;
+ 
+
+-- QUERY 10: Rank Job Roles by Attrition Within Each Department (Window Function)
+-- Concept: *** WINDOW FUNCTION *** - RANK() OVER()
+-- Business Question: Which department needs most urgent HR attention?
+
+SELECT 
+    Department,
+    JobRole,
+    COUNT(*) AS total_employees,
+    SUM(CASE WHEN Attrition = 'Yes' THEN 1 ELSE 0 END) AS attrition_count,
+    ROUND(
+        SUM(CASE WHEN Attrition = 'Yes' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2
+    ) AS attrition_rate_percent,
+    RANK() OVER (
+        PARTITION BY Department 
+        ORDER BY SUM(CASE WHEN Attrition = 'Yes' THEN 1 ELSE 0 END) DESC
+    ) AS rank_within_department
+FROM hr_attrition
+GROUP BY Department, JobRole
+ORDER BY Department, rank_within_department;
